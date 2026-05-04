@@ -33,6 +33,8 @@ import httpx
 import json
 import threading
 import re
+import sys, os as _imp_os; sys.path.insert(0, _imp_os.path.dirname(_imp_os.path.abspath(__file__))); from hermes_agent import register_agent_routes
+
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -1591,8 +1593,100 @@ function hideHelp(){document.getElementById('helpOv').classList.remove('show')}
 function clearChat(){M.innerHTML='';add('bot','Conversation effacee. Je suis pret.')}
 I.addEventListener('input',function(){this.style.height='auto';this.style.height=Math.min(this.scrollHeight,100)+'px'});
 I.focus();
+
+    // Agent mode detection
+    function isAgentTask(msg) {
+        const keywords = ['screenshot','capture','ecran','fenetres','clipboard','presse-papier',
+                         'aide','help','infos','processus','reseau','fichiers','fichier',
+                         'ouvrir','site','web','page','processus','kill','tuer'];
+        const msgLow = msg.toLowerCase();
+        return !keywords.some(k => msgLow.includes(k)) && msg.length > 20;
+    }
+
+    // Override send to route complex tasks to agent
+    const _origSend = window.sendMsg;
+    window.sendMsg = async function(msg, files) {
+        if (files && files.length > 0) {
+            return _origSend(msg, files);
+        }
+        if (isAgentTask(msg)) {
+            return sendAgent(msg);
+        }
+        return _origSend(msg, files);
+    };
+
+    async function sendAgent(msg) {
+        addMsg('user', msg);
+        const box = document.getElementById('agent-progress');
+        if (box) box.style.display = 'block';
+        addMsg('bot', '🤖 Agent HERMES en cours...');
+
+        try {
+            const resp = await fetch('/api/agent', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message: msg})
+            });
+            const reader = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buf = '', steps = [];
+
+            while (true) {
+                const {done, value} = await reader.read();
+                if (done) break;
+                buf += decoder.decode(value, {stream: true});
+                const lines = buf.split('\n');
+                buf = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    try {
+                        const evt = JSON.parse(line.slice(6));
+                        if (evt.type === 'step') {
+                            steps.push(evt);
+                            updateAgentProgress(steps);
+                        } else if (evt.type === 'result') {
+                            const last = steps[steps.length-1];
+                            if (last) last.result = evt;
+                            updateAgentProgress(steps);
+                        } else if (evt.type === 'done') {
+                            addMsg('bot', '✅ ' + evt.summary);
+                            if (box) box.style.display = 'none';
+                            return;
+                        } else if (evt.type === 'error') {
+                            addMsg('bot', '❌ Erreur: ' + evt.message);
+                            if (box) box.style.display = 'none';
+                            return;
+                        }
+                    } catch(e) {}
+                }
+            }
+            addMsg('bot', '⚠️ Agent termine sans confirmation.');
+            if (box) box.style.display = 'none';
+        } catch(e) {
+            addMsg('bot', '❌ Erreur connexion agent: ' + e.message);
+        }
+    }
+
+    function updateAgentProgress(steps) {
+        const box = document.getElementById('agent-progress');
+        if (!box) return;
+        box.innerHTML = '<div style="font-weight:700;margin-bottom:8px">🤖 Agent HERMES</div>' +
+            steps.map((s,i) => {
+                const icon = s.result ? (s.result.success ? '✅' : '❌') : '⏳';
+                const tool = s.tool || '?';
+                const preview = s.result ? (s.result.preview||'').substring(0,80) : '...';
+                return '<div style="margin:4px 0;padding:4px 8px;background:rgba(163,230,53,0.1);border-radius:6px;font-size:13px">' +
+                    icon + ' Étape ' + (i+1) + ' [' + tool + '] ' + preview + '</div>';
+            }).join('');
+        box.scrollTop = box.scrollHeight;
+    }
+
 </script>
-</body>
+
+
+
+
+<div id="agent-panel" style="display:none;position:fixed;bottom:16px;right:16px;width:440px;max-height:420px;overflow-y:auto;background:#0d1117;border:1px solid #30363d;border-radius:16px;padding:16px;z-index:9999;font-size:13px;color:#c9d1d9;font-family:-apple-system,sans-serif;box-shadow:0 8px 32px rgba(0,0,0,0.5)"></div></body>
 </html>"""
 
         @app.get("/", response_class=HTMLResponse)
@@ -2080,8 +2174,11 @@ I.focus();
                 "Clique sur **Aide** pour plus de details."
             )}
 
-        return app
 
+        # Register agent mode routes
+        register_agent_routes(app)
+
+        return app
 
 # ---------------------------------------------------------------------------
 # Point d'entrée
