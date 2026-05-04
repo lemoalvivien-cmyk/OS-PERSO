@@ -1,0 +1,56 @@
+# HERMES AUTOCLOW - Requirements
+# Core server
+json
+sqlite3  # stdlib
+http.server  # stdlib
+threading  # stdlib
+urllib  # stdlib
+datetime  # stdlib
+
+# LLM
+# deepseek-sdk  # via urllib
+# groq  # optional
+
+# Vector store + embeddings (installed)
+chromadb>=1.5.0
+sentence-transformers  # optional, chromadb has built-in
+
+# STT (optional)
+# faster-whisper  # pip install when needed
+# openai-whisper  # fallback
+
+# OCR/Documents (for SaaS independence)
+unstructured  # PDF/doc extraction
+marker-pdf  # PDF to markdown
+tesseract  # system install needed
+
+# Browser automation
+# playwright  # already in browser_agent_v2_node
+
+# TTS (lightweight, local)
+# piper-tts  # or coqui-tts
+
+# Security
+cryptography  # for HMAC
+
+# Web search
+duckduckgo-search  # local web search
+
+# Data
+polars  # faster than pandas, no numpy dep
+duckdb  # local analytics DB
+
+# Dev/Testing
+pytest
+pytest-asyncio
+
+# LLM Framework (lightweight agent loop)
+llama-index-core  # RAG + agent tools
+llama-index-llms-deepseek  # DeepSeek integration
+llama-index-llms-ollama  # Local LLM fallback
+
+# Monitoring
+loguru  # better than stdlib logging
+
+# Code quality
+ruff  # linter + formatter

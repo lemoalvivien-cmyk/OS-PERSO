@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.bak*
+*.egg-info/
+dist/
+build/
+
+# Qdrant storage
+storage/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.venv/
+env/
+
+# Memory / evolution drafts (personal)
+memory/
+evolution-drafts/
+
+# Archive
+_archive_dev/
+
+# OpenClaw internal
+.autoclaw-attachments/
+.openclaw/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+
+# Screenshots from development
+*.png
+!screenshots/
